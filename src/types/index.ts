@@ -6,6 +6,16 @@ export type MatchSet = {
   closed_at: string | null;
 };
 
+export type ScoreEvent = {
+  id: string;
+  match_id: string;
+  set_number: number;
+  team: "home" | "away";
+  delta: -1 | 1;
+  reason: string | null;
+  created_at: string;
+};
+
 export type MatchLineup = {
   match_id: string;
   set_number: number;

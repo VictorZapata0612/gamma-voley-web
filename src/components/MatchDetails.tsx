@@ -11,12 +11,14 @@ import type {
   PlayerInfo,
   RotationEvent,
   RotationFault,
+  ScoreEvent,
   SubstitutionEvent,
 } from "../types";
 import { ReadError } from "./RealtimeStatus";
 
 type DetailData = {
   sets: MatchSet[];
+  scoreEvents: ScoreEvent[];
   lineups: MatchLineup[];
   alignments: MatchAlignmentState[];
   rotations: RotationEvent[];
@@ -28,6 +30,7 @@ type DetailData = {
 
 const emptyDetails: DetailData = {
   sets: [],
+  scoreEvents: [],
   lineups: [],
   alignments: [],
   rotations: [],
@@ -39,6 +42,7 @@ const emptyDetails: DetailData = {
 
 const detailTables = [
   "match_sets",
+  "score_events",
   "match_lineups",
   "set_alignment_state",
   "rotation_events",
@@ -62,6 +66,7 @@ function teamName(match: Match, team: "home" | "away"): string {
 export function MatchDetails({ match }: { match: Match }) {
   const [details, setDetails] = useState<DetailData>(emptyDetails);
   const [missingTables, setMissingTables] = useState<string[]>([]);
+  const [scoreEventsError, setScoreEventsError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -77,6 +82,9 @@ export function MatchDetails({ match }: { match: Match }) {
       .filter(({ result }) => result.error)
       .map(({ table }) => table);
     setMissingTables(unavailable);
+    setScoreEventsError(
+      results.find(({ table }) => table === "score_events")?.result.error?.message ?? null,
+    );
     const firstError = results.find(({ result }) => result.error)?.result.error;
     if (firstError && unavailable.length === detailTables.length) {
       setError(`No se pudieron leer los datos ampliados del partido: ${firstError.message}`);
@@ -112,6 +120,9 @@ export function MatchDetails({ match }: { match: Match }) {
 
     setDetails({
       sets: rows<MatchSet>("match_sets").sort((a, b) => a.set_number - b.set_number),
+      scoreEvents: rows<ScoreEvent>("score_events").sort(
+        (a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id),
+      ),
       lineups: lineups
         .filter((row) => row.set_number === match.current_set)
         .sort((a, b) => a.team.localeCompare(b.team) || a.position - b.position),
@@ -146,6 +157,34 @@ export function MatchDetails({ match }: { match: Match }) {
   };
   const hasAlignment = details.lineups.length > 0 || details.alignments.length > 0;
   const servingTeam = details.alignments.find((entry) => entry.is_serving === 1)?.team;
+  const scoreHistory = useMemo(() => {
+    const historyBySet = new Map<number, Array<ScoreEvent & { home_points: number; away_points: number }>>();
+    const runningScores = new Map<number, { home_points: number; away_points: number }>();
+
+    for (const event of details.scoreEvents) {
+      const current = runningScores.get(event.set_number) ?? { home_points: 0, away_points: 0 };
+      const next = {
+        home_points: current.home_points + (event.team === "home" ? event.delta : 0),
+        away_points: current.away_points + (event.team === "away" ? event.delta : 0),
+      };
+      runningScores.set(event.set_number, next);
+      const setHistory = historyBySet.get(event.set_number) ?? [];
+      setHistory.push({ ...event, ...next });
+      historyBySet.set(event.set_number, setHistory);
+    }
+
+    return [...historyBySet.entries()]
+      .sort(([setA], [setB]) => setB - setA)
+      .map(([setNumber, events]) => ({ setNumber, events: [...events].reverse() }));
+  }, [details.scoreEvents]);
+  const scoreHistoryWarnings = scoreHistory.filter(({ setNumber, events }) => {
+    const officialSet = details.sets.find((set) => set.set_number === setNumber);
+    const lastEvent = events[0];
+    return officialSet && lastEvent && (
+      officialSet.home_points !== lastEvent.home_points ||
+      officialSet.away_points !== lastEvent.away_points
+    );
+  });
 
   if (loading) return <div className="match-details"><p>Cargando datos ampliados...</p></div>;
   if (error) return <div className="match-details"><ReadError message={error} onRetry={() => void fetchDetails()} /></div>;
@@ -178,6 +217,47 @@ export function MatchDetails({ match }: { match: Match }) {
             );
           })}
         </div>
+      </section>
+
+      <section>
+        <h4>Historial de puntos</h4>
+        {scoreEventsError ? (
+          <ReadError
+            message={`No se pudo cargar el historial de puntos: ${scoreEventsError}`}
+            onRetry={() => void fetchDetails()}
+          />
+        ) : details.scoreEvents.length === 0 ? (
+          <p className="table-empty">No hay eventos de puntos registrados para este partido.</p>
+        ) : (
+          <>
+            {scoreHistoryWarnings.length > 0 && (
+              <p className="details-notice">
+                El historial de eventos no coincide con el marcador oficial de {scoreHistoryWarnings.map(({ setNumber }) => getSetLabel(match, setNumber)).join(", ")}. Se muestran los acumulados derivados de los eventos disponibles.
+              </p>
+            )}
+            <div className="score-history">
+              {scoreHistory.map(({ setNumber, events }) => (
+                <section className="score-history-set" key={setNumber}>
+                  <h5>{getSetLabel(match, setNumber)}</h5>
+                  <ol className="score-history-list">
+                    {events.map((event) => (
+                      <li key={event.id} className="score-history-item">
+                        <span>
+                          {event.delta === 1
+                            ? `${teamName(match, event.team)} anotó`
+                            : `Ajuste: se restó a ${teamName(match, event.team)}`}
+                          {event.reason ? ` · ${event.reason}` : ""}
+                        </span>
+                        <strong>{event.home_points} - {event.away_points}</strong>
+                        <time dateTime={event.created_at}>{moment(event.created_at)}</time>
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              ))}
+            </div>
+          </>
+        )}
       </section>
 
       {hasAlignment && <section>

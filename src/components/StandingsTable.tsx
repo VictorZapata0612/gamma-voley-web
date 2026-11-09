@@ -9,16 +9,28 @@ import { usePublicRealtime } from "../lib/usePublicRealtime";
 const standingsSubscriptions = [
   { table: "matches", filter: `tournament_id=eq.${PUBLIC_TOURNAMENT_ID}` },
   { table: "match_sets" },
+  { table: "qualification_resolutions", filter: `tournament_id=eq.${PUBLIC_TOURNAMENT_ID}` },
 ];
+
+type QualificationResolution = {
+  id: string;
+  group_id: string;
+  affected_team_ids: string[];
+  qualified_team_id: string;
+  criterion: string;
+  decided_by: string;
+  decided_at: string;
+};
 
 export function StandingsTable() {
   const [groupA, setGroupA] = useState<StandingRow[]>([]);
   const [groupB, setGroupB] = useState<StandingRow[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [resolutions, setResolutions] = useState<QualificationResolution[]>([]);
 
   const calculateStandings = useCallback(async () => {
-    const [teamsResult, membershipsResult, matchesResult] = await Promise.all([
+    const [teamsResult, membershipsResult, matchesResult, resolutionsResult] = await Promise.all([
       supabase
         .from("teams")
         .select("id, name")
@@ -33,10 +45,14 @@ export function StandingsTable() {
         .eq("phase", "group")
         .eq("tournament_id", PUBLIC_TOURNAMENT_ID)
         .in("status", ["completed", "walkover"]),
+      supabase
+        .from("qualification_resolutions")
+        .select("id, group_id, affected_team_ids, qualified_team_id, criterion, decided_by, decided_at")
+        .eq("tournament_id", PUBLIC_TOURNAMENT_ID),
     ]);
 
     const readError =
-      teamsResult.error ?? membershipsResult.error ?? matchesResult.error;
+      teamsResult.error ?? membershipsResult.error ?? matchesResult.error ?? resolutionsResult.error;
     if (readError) {
       setError(readError.message);
       setLoading(false);
@@ -46,6 +62,7 @@ export function StandingsTable() {
     const teams = teamsResult.data ?? [];
     const groupMemberships = membershipsResult.data ?? [];
     const matches = matchesResult.data ?? [];
+    const remoteResolutions = (resolutionsResult.data ?? []) as QualificationResolution[];
 
     const map = new Map<string, StandingRow>();
 
@@ -116,8 +133,23 @@ export function StandingsTable() {
       return b.pointDifferential - a.pointDifferential;
     };
 
-    setGroupA(rows.filter((r) => r.groupId === "A").sort(sortFn));
-    setGroupB(rows.filter((r) => r.groupId === "B").sort(sortFn));
+    const applyResolution = (groupRows: StandingRow[], groupId: "A" | "B") => {
+      const resolution = remoteResolutions.find((item) => item.group_id.endsWith(`-${groupId.toLowerCase()}`));
+      if (!resolution || resolution.affected_team_ids.length !== 2) return groupRows;
+      const selectedIndex = groupRows.findIndex((row) => row.teamId === resolution.qualified_team_id);
+      const otherIndex = groupRows.findIndex(
+        (row) => resolution.affected_team_ids.includes(row.teamId) && row.teamId !== resolution.qualified_team_id,
+      );
+      if (selectedIndex < 0 || otherIndex < 0 || Math.min(selectedIndex, otherIndex) > 1) return groupRows;
+      const reordered = [...groupRows];
+      const selected = reordered.splice(selectedIndex, 1)[0];
+      reordered.splice(Math.min(selectedIndex, otherIndex), 0, selected);
+      return reordered;
+    };
+
+    setGroupA(applyResolution(rows.filter((r) => r.groupId === "A").sort(sortFn), "A"));
+    setGroupB(applyResolution(rows.filter((r) => r.groupId === "B").sort(sortFn), "B"));
+    setResolutions(remoteResolutions);
     setError(null);
     setLoading(false);
   }, []);
@@ -156,6 +188,16 @@ export function StandingsTable() {
       {rows.length === 0 ? (
         <p className="table-empty">Aún no hay equipos registrados en este grupo.</p>
       ) : (
+        <>
+        {resolutions.find((resolution) => resolution.group_id.endsWith(`-${groupName.toLowerCase()}`)) && (
+          <div className="official-resolution" role="status">
+            <strong>✓ Clasificación resuelta oficialmente</strong>
+            <span>
+              Equipo clasificado: {rows.find((row) => row.teamId === resolutions.find((resolution) => resolution.group_id.endsWith(`-${groupName.toLowerCase()}`))?.qualified_team_id)?.teamName ?? "registrado"}.
+              Criterio: {resolutions.find((resolution) => resolution.group_id.endsWith(`-${groupName.toLowerCase()}`))?.criterion}
+            </span>
+          </div>
+        )}
         <table className="standings-table">
           <thead>
             <tr>
@@ -185,6 +227,7 @@ export function StandingsTable() {
             ))}
           </tbody>
         </table>
+        </>
       )}
     </div>
   );
