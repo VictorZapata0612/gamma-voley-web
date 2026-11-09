@@ -5,7 +5,7 @@ import type { Match } from "../types";
 import { ReadError, RealtimeStatus } from "./RealtimeStatus";
 import { usePublicRealtime } from "../lib/usePublicRealtime";
 import { MatchDetails } from "./MatchDetails";
-import { getSetLabel } from "../lib/matchFormat";
+import { getDisplaySetScore, getSetLabel } from "../lib/matchFormat";
 
 const liveSubscriptions = [
   { table: "match_sets" },
@@ -91,6 +91,9 @@ export function LiveScoreboard() {
         const currentSetData = match.match_sets?.find(
           (s) => s.set_number === match.current_set
         );
+        const displayedCurrentSetData = currentSetData
+          ? getDisplaySetScore(match, currentSetData)
+          : null;
 
           return (
             <div key={match.id} className="scoreboard-card">
@@ -104,12 +107,12 @@ export function LiveScoreboard() {
             <div className="match-teams-row">
               <div className="team-col">
                 <h3 className="team-name">{match.home?.name ?? "Local"}</h3>
-                <span className="score-number">{currentSetData?.home_points ?? 0}</span>
+                <span className="score-number">{displayedCurrentSetData?.home_points ?? 0}</span>
               </div>
               <div className="vs-divider">VS</div>
               <div className="team-col">
                 <h3 className="team-name">{match.away?.name ?? "Visitante"}</h3>
-                <span className="score-number">{currentSetData?.away_points ?? 0}</span>
+                <span className="score-number">{displayedCurrentSetData?.away_points ?? 0}</span>
               </div>
             </div>
 
@@ -117,11 +120,14 @@ export function LiveScoreboard() {
               <div className="sets-history">
                 {match.match_sets
                   .sort((a, b) => a.set_number - b.set_number)
-                  .map((s) => (
-                    <span key={s.set_number} className={`set-pill ${s.set_number === match.current_set ? "active" : ""}`}>
-                      {getSetLabel(match, s.set_number)}: {s.home_points} - {s.away_points}
-                    </span>
-                  ))}
+                  .map((s) => {
+                    const displayedScore = getDisplaySetScore(match, s);
+                    return (
+                      <span key={s.set_number} className={`set-pill ${s.set_number === match.current_set ? "active" : ""}`}>
+                        {getSetLabel(match, s.set_number)}: {displayedScore.home_points} - {displayedScore.away_points}
+                      </span>
+                    );
+                  })}
               </div>
             )}
             <button className="details-toggle" onClick={() => setExpandedMatchId((current) => current === match.id ? null : match.id)}>

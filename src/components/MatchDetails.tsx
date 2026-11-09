@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { usePublicRealtime } from "../lib/usePublicRealtime";
-import { getSetLabel } from "../lib/matchFormat";
+import { getDisplaySetScore, getSetLabel } from "../lib/matchFormat";
 import type {
   Match,
   MatchAlignmentState,
@@ -161,18 +161,22 @@ export function MatchDetails({ match }: { match: Match }) {
         <h4>Marcador y sets</h4>
         {(() => {
           const current = details.sets.find((set) => set.set_number === match.current_set);
+          const displayedCurrentScore = current ? getDisplaySetScore(match, current) : null;
           return (
             <p className="current-detail-score">
-              Marcador actual ({getSetLabel(match, match.current_set)}): {current?.home_points ?? 0} - {current?.away_points ?? 0}
+              Marcador actual ({getSetLabel(match, match.current_set)}): {displayedCurrentScore?.home_points ?? 0} - {displayedCurrentScore?.away_points ?? 0}
             </p>
           );
         })()}
         <div className="detail-set-list">
-          {details.sets.length === 0 ? <span>Resultados por set no disponibles.</span> : details.sets.map((set) => (
-            <span key={set.set_number} className={set.set_number === match.current_set ? "detail-set active" : "detail-set"}>
-              {getSetLabel(match, set.set_number)}: {set.home_points} - {set.away_points}
-            </span>
-          ))}
+          {details.sets.length === 0 ? <span>Resultados por set no disponibles.</span> : details.sets.map((set) => {
+            const displayedScore = getDisplaySetScore(match, set);
+            return (
+              <span key={set.set_number} className={set.set_number === match.current_set ? "detail-set active" : "detail-set"}>
+                {getSetLabel(match, set.set_number)}: {displayedScore.home_points} - {displayedScore.away_points}
+              </span>
+            );
+          })}
         </div>
       </section>
 

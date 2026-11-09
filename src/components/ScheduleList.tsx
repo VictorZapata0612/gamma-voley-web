@@ -5,7 +5,7 @@ import type { Match } from "../types";
 import { ReadError, RealtimeStatus } from "./RealtimeStatus";
 import { usePublicRealtime } from "../lib/usePublicRealtime";
 import { MatchDetails } from "./MatchDetails";
-import { getSetLabel } from "../lib/matchFormat";
+import { getDisplaySetScore, getSetLabel } from "../lib/matchFormat";
 
 const scheduleSubscriptions = [
   { table: "matches", filter: `tournament_id=eq.${PUBLIC_TOURNAMENT_ID}` },
@@ -118,11 +118,14 @@ export function ScheduleList() {
               <div className="schedule-sets">
                 {m.match_sets
                   .sort((a, b) => a.set_number - b.set_number)
-                  .map((s) => (
-                    <span key={s.set_number} className="set-score-chip">
-                      {getSetLabel(m, s.set_number)}: {s.home_points}-{s.away_points}
-                    </span>
-                  ))}
+                  .map((s) => {
+                    const displayedScore = getDisplaySetScore(m, s);
+                    return (
+                      <span key={s.set_number} className="set-score-chip">
+                        {getSetLabel(m, s.set_number)}: {displayedScore.home_points}-{displayedScore.away_points}
+                      </span>
+                    );
+                  })}
               </div>
             )}
             <button className="details-toggle" onClick={() => setExpandedMatchId((current) => current === m.id ? null : m.id)}>
