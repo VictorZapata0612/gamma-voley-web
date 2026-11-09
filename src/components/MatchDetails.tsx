@@ -13,7 +13,7 @@ import type {
   RotationFault,
   SubstitutionEvent,
 } from "../types";
-import { ReadError, RealtimeStatus } from "./RealtimeStatus";
+import { ReadError } from "./RealtimeStatus";
 
 type DetailData = {
   sets: MatchSet[];
@@ -130,7 +130,7 @@ export function MatchDetails({ match }: { match: Match }) {
     () => detailTables.map((table) => ({ table, filter: `match_id=eq.${match.id}` })),
     [match.id],
   );
-  const realtimeStatus = usePublicRealtime({
+  usePublicRealtime({
     channelName: `public-match-details-${match.id}`,
     subscriptions,
     onRefresh: fetchDetails,
@@ -147,12 +147,11 @@ export function MatchDetails({ match }: { match: Match }) {
   const hasAlignment = details.lineups.length > 0 || details.alignments.length > 0;
   const servingTeam = details.alignments.find((entry) => entry.is_serving === 1)?.team;
 
-  if (loading) return <div className="match-details"><RealtimeStatus status={realtimeStatus} /><p>Cargando datos ampliados...</p></div>;
-  if (error) return <div className="match-details"><RealtimeStatus status={realtimeStatus} /><ReadError message={error} onRetry={() => void fetchDetails()} /></div>;
+  if (loading) return <div className="match-details"><p>Cargando datos ampliados...</p></div>;
+  if (error) return <div className="match-details"><ReadError message={error} onRetry={() => void fetchDetails()} /></div>;
 
   return (
     <div className="match-details">
-      <RealtimeStatus status={realtimeStatus} />
       {missingTables.length > 0 && (
         <p className="details-notice">
           El esquema remoto no expone: {missingTables.join(", ")}. Esos datos no se muestran.
@@ -177,9 +176,9 @@ export function MatchDetails({ match }: { match: Match }) {
         </div>
       </section>
 
-      <section>
+      {hasAlignment && <section>
         <h4>Servicio y posiciones actuales</h4>
-        {!hasAlignment ? <p>La alineación y el servidor aún no están registrados.</p> : (
+        {
           <div className="alignment-grid">
             {(["home", "away"] as const).map((team) => {
               const state = details.alignments.find((entry) => entry.team === team);
@@ -201,20 +200,18 @@ export function MatchDetails({ match }: { match: Match }) {
               );
             })}
           </div>
-        )}
-      </section>
+        }
+      </section>}
 
-      <section>
+      {(details.rotations.length > 0 || details.timeouts.length > 0 || details.faults.length > 0 || details.substitutions.length > 0) && <section>
         <h4>Actividad del partido</h4>
-        {details.rotations.length === 0 && details.timeouts.length === 0 && details.faults.length === 0 && details.substitutions.length === 0
-          ? <p>No hay rotaciones, tiempos muertos ni faltas registradas.</p>
-          : <ul className="detail-events">
+        <ul className="detail-events">
             {details.rotations.map((event) => <li key={`rotation-${event.id}`}>Rotación de {teamName(match, event.team)} · {getSetLabel(match, event.set_number)} · {moment(event.created_at)}</li>)}
             {details.timeouts.map((timeout) => <li key={`timeout-${timeout.team}-${timeout.set_number}`}>Tiempo muerto de {teamName(match, timeout.team)} · {getSetLabel(match, timeout.set_number)} · {moment(timeout.used_at)}</li>)}
             {details.substitutions.map((event) => <li key={`substitution-${event.id}`}>Cambio de {teamName(match, event.team)}: {playerName(event.player_out_id)} por {playerName(event.player_in_id)} · {getSetLabel(match, event.set_number)} · {moment(event.occurred_at)}</li>)}
             {details.faults.map((fault) => <li key={`fault-${fault.id}`}>Falta de rotación de {teamName(match, fault.team)}: {fault.sanction} ({fault.reason}) · {getSetLabel(match, fault.set_number)} · {moment(fault.occurred_at ?? fault.created_at)}</li>)}
-          </ul>}
-      </section>
+        </ul>
+      </section>}
     </div>
   );
 }
