@@ -4,6 +4,8 @@ import { PUBLIC_TOURNAMENT_ID } from "../lib/tournament";
 import type { Match } from "../types";
 import { ReadError, RealtimeStatus } from "./RealtimeStatus";
 import { usePublicRealtime } from "../lib/usePublicRealtime";
+import { MatchDetails } from "./MatchDetails";
+import { getSetLabel } from "../lib/matchFormat";
 
 const scheduleSubscriptions = [
   { table: "matches", filter: `tournament_id=eq.${PUBLIC_TOURNAMENT_ID}` },
@@ -14,6 +16,7 @@ export function ScheduleList() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
 
   const fetchSchedule = useCallback(async () => {
     const { data, error } = await supabase
@@ -103,11 +106,15 @@ export function ScheduleList() {
                   .sort((a, b) => a.set_number - b.set_number)
                   .map((s) => (
                     <span key={s.set_number} className="set-score-chip">
-                      S{s.set_number}: {s.home_points}-{s.away_points}
+                      {getSetLabel(m, s.set_number)}: {s.home_points}-{s.away_points}
                     </span>
                   ))}
               </div>
             )}
+            <button className="details-toggle" onClick={() => setExpandedMatchId((current) => current === m.id ? null : m.id)}>
+              {expandedMatchId === m.id ? "Ocultar seguimiento" : "Ver seguimiento del partido"}
+            </button>
+            {expandedMatchId === m.id && <MatchDetails match={m} />}
           </div>
         ))}
       </div>

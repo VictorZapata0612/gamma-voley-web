@@ -4,6 +4,8 @@ import { PUBLIC_TOURNAMENT_ID } from "../lib/tournament";
 import type { Match } from "../types";
 import { ReadError, RealtimeStatus } from "./RealtimeStatus";
 import { usePublicRealtime } from "../lib/usePublicRealtime";
+import { MatchDetails } from "./MatchDetails";
+import { getSetLabel } from "../lib/matchFormat";
 
 const liveSubscriptions = [
   { table: "match_sets" },
@@ -14,6 +16,7 @@ export function LiveScoreboard() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
 
   const fetchLiveMatches = useCallback(async () => {
     const { data, error } = await supabase
@@ -116,11 +119,15 @@ export function LiveScoreboard() {
                   .sort((a, b) => a.set_number - b.set_number)
                   .map((s) => (
                     <span key={s.set_number} className={`set-pill ${s.set_number === match.current_set ? "active" : ""}`}>
-                      S{s.set_number}: {s.home_points} - {s.away_points}
+                      {getSetLabel(match, s.set_number)}: {s.home_points} - {s.away_points}
                     </span>
                   ))}
               </div>
             )}
+            <button className="details-toggle" onClick={() => setExpandedMatchId((current) => current === match.id ? null : match.id)}>
+              {expandedMatchId === match.id ? "Ocultar seguimiento" : "Ver seguimiento del partido"}
+            </button>
+            {expandedMatchId === match.id && <MatchDetails match={match} />}
             </div>
           );
         })}
