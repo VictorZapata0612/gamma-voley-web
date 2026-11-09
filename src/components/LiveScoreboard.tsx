@@ -1,13 +1,21 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { PUBLIC_TOURNAMENT_ID } from "../lib/tournament";
 import type { Match } from "../types";
+import { ReadError, RealtimeStatus } from "./RealtimeStatus";
+import { usePublicRealtime } from "../lib/usePublicRealtime";
+
+const liveSubscriptions = [
+  { table: "match_sets" },
+  { table: "matches", filter: `tournament_id=eq.${PUBLIC_TOURNAMENT_ID}` },
+];
 
 export function LiveScoreboard() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchLiveMatches = async () => {
+  const fetchLiveMatches = useCallback(async () => {
     const { data, error } = await supabase
       .from("matches")
       .select(`
@@ -20,66 +28,69 @@ export function LiveScoreboard() {
       .eq("status", "in_progress")
       .order("court_number", { ascending: true });
 
-    if (!error && data) {
+    if (error) {
+      setError(error.message);
+    } else if (data) {
       setMatches(data as unknown as Match[]);
+      setError(null);
     }
     setLoading(false);
-  };
+  }, []);
+
+  const realtimeStatus = usePublicRealtime({
+    channelName: "public-realtime-scores",
+    subscriptions: liveSubscriptions,
+    onRefresh: fetchLiveMatches,
+  });
 
   useEffect(() => {
     void fetchLiveMatches();
-
-    const channel = supabase
-      .channel("public-realtime-scores")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "match_sets" },
-        () => {
-          void fetchLiveMatches();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "matches",
-          filter: `tournament_id=eq.${PUBLIC_TOURNAMENT_ID}`,
-        },
-        () => {
-          void fetchLiveMatches();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, []);
+  }, [fetchLiveMatches]);
 
   if (loading) {
-    return <div className="status-message">Cargando marcadores en vivo...</div>;
+    return (
+      <>
+        <RealtimeStatus status={realtimeStatus} />
+        <div className="status-message">Cargando marcadores en vivo...</div>
+      </>
+    );
+  }
+
+  if (error && matches.length === 0) {
+    return (
+      <>
+        <RealtimeStatus status={realtimeStatus} />
+        <ReadError message={error} onRetry={() => void fetchLiveMatches()} />
+      </>
+    );
   }
 
   if (matches.length === 0) {
     return (
-      <div className="empty-card">
-        <span className="empty-icon">🏐</span>
-        <h3>No hay partidos en juego en este momento</h3>
-        <p>Los marcadores se actualizarán automáticamente tan pronto inicie un encuentro.</p>
-      </div>
+      <>
+        <RealtimeStatus status={realtimeStatus} />
+        {error && <ReadError message={error} onRetry={() => void fetchLiveMatches()} />}
+        <div className="empty-card">
+          <span className="empty-icon">🏐</span>
+          <h3>No hay partidos en juego en este momento</h3>
+          <p>Los marcadores se actualizarán automáticamente tan pronto inicie un encuentro.</p>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="live-grid">
-      {matches.map((match) => {
+    <>
+      <RealtimeStatus status={realtimeStatus} />
+      {error && <ReadError message={error} onRetry={() => void fetchLiveMatches()} />}
+      <div className="live-grid">
+        {matches.map((match) => {
         const currentSetData = match.match_sets?.find(
           (s) => s.set_number === match.current_set
         );
 
-        return (
-          <div key={match.id} className="scoreboard-card">
+          return (
+            <div key={match.id} className="scoreboard-card">
             <div className="card-header">
               <span className="live-badge">
                 <span className="pulse-dot"></span> EN VIVO · CANCHA {match.court_number ?? 1}
@@ -110,9 +121,10 @@ export function LiveScoreboard() {
                   ))}
               </div>
             )}
-          </div>
-        );
-      })}
-    </div>
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }

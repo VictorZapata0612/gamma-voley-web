@@ -328,6 +328,59 @@ body {
   color: var(--text-muted);
 }
 
+.realtime-status {
+  border-radius: 8px;
+  font-size: 11px;
+  margin-bottom: 12px;
+  padding: 6px 10px;
+  text-align: center;
+}
+
+.realtime-status.connecting {
+  background: #3b3420;
+  color: #ffcc80;
+}
+
+.realtime-status.active {
+  background: #193522;
+  color: #81c784;
+}
+
+.realtime-status.error {
+  background: #452022;
+  color: #ef9a9a;
+}
+
+.error-card {
+  background: #452022;
+  border: 1px solid #b71c1c;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  padding: 16px;
+  text-align: center;
+}
+
+.error-card h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+.error-card p {
+  color: #ffcdd2;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.retry-btn {
+  background: var(--primary);
+  border: 0;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 800;
+  padding: 8px 14px;
+}
+
 .main-footer {
   text-align: center;
   margin-top: 30px;

@@ -1,34 +1,51 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { PUBLIC_TOURNAMENT_ID } from "../lib/tournament";
 import { getClassificationPoints } from "../lib/standings";
 import type { StandingRow } from "../types";
+import { ReadError, RealtimeStatus } from "./RealtimeStatus";
+import { usePublicRealtime } from "../lib/usePublicRealtime";
+
+const standingsSubscriptions = [
+  { table: "matches", filter: `tournament_id=eq.${PUBLIC_TOURNAMENT_ID}` },
+  { table: "match_sets" },
+];
 
 export function StandingsTable() {
   const [groupA, setGroupA] = useState<StandingRow[]>([]);
   const [groupB, setGroupB] = useState<StandingRow[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const calculateStandings = async () => {
-    const { data: teams } = await supabase
-      .from("teams")
-      .select("id, name")
-      .eq("tournament_id", PUBLIC_TOURNAMENT_ID);
-    const { data: groupMemberships } = await supabase
-      .from("group_memberships")
-      .select("team_id, group_id, groups!inner(name, tournament_id)")
-      .eq("groups.tournament_id", PUBLIC_TOURNAMENT_ID);
-    const { data: matches } = await supabase
-      .from("matches")
-      .select("*, match_sets(*)")
-      .eq("phase", "group")
-      .eq("tournament_id", PUBLIC_TOURNAMENT_ID)
-      .in("status", ["completed", "walkover"]);
+  const calculateStandings = useCallback(async () => {
+    const [teamsResult, membershipsResult, matchesResult] = await Promise.all([
+      supabase
+        .from("teams")
+        .select("id, name")
+        .eq("tournament_id", PUBLIC_TOURNAMENT_ID),
+      supabase
+        .from("group_memberships")
+        .select("team_id, group_id, groups!inner(name, tournament_id)")
+        .eq("groups.tournament_id", PUBLIC_TOURNAMENT_ID),
+      supabase
+        .from("matches")
+        .select("*, match_sets(*)")
+        .eq("phase", "group")
+        .eq("tournament_id", PUBLIC_TOURNAMENT_ID)
+        .in("status", ["completed", "walkover"]),
+    ]);
 
-    if (!teams || !groupMemberships) {
+    const readError =
+      teamsResult.error ?? membershipsResult.error ?? matchesResult.error;
+    if (readError) {
+      setError(readError.message);
       setLoading(false);
       return;
     }
+
+    const teams = teamsResult.data ?? [];
+    const groupMemberships = membershipsResult.data ?? [];
+    const matches = matchesResult.data ?? [];
 
     const map = new Map<string, StandingRow>();
 
@@ -51,7 +68,7 @@ export function StandingsTable() {
       }
     });
 
-    matches?.forEach((m: any) => {
+    matches.forEach((m: any) => {
       const home = map.get(m.home_team_id);
       const away = map.get(m.away_team_id);
       if (!home || !away) return;
@@ -101,15 +118,36 @@ export function StandingsTable() {
 
     setGroupA(rows.filter((r) => r.groupId === "A").sort(sortFn));
     setGroupB(rows.filter((r) => r.groupId === "B").sort(sortFn));
+    setError(null);
     setLoading(false);
-  };
+  }, []);
+
+  const realtimeStatus = usePublicRealtime({
+    channelName: "public-realtime-standings",
+    subscriptions: standingsSubscriptions,
+    onRefresh: calculateStandings,
+  });
 
   useEffect(() => {
     void calculateStandings();
-  }, []);
+  }, [calculateStandings]);
 
   if (loading) {
-    return <div className="status-message">Calculando tabla de posiciones...</div>;
+    return (
+      <>
+        <RealtimeStatus status={realtimeStatus} />
+        <div className="status-message">Calculando tabla de posiciones...</div>
+      </>
+    );
+  }
+
+  if (error && groupA.length === 0 && groupB.length === 0) {
+    return (
+      <>
+        <RealtimeStatus status={realtimeStatus} />
+        <ReadError message={error} onRetry={() => void calculateStandings()} />
+      </>
+    );
   }
 
   const renderTable = (rows: StandingRow[], groupName: string) => (
@@ -148,9 +186,13 @@ export function StandingsTable() {
   );
 
   return (
-    <div className="standings-container">
-      {renderTable(groupA, "A")}
-      {renderTable(groupB, "B")}
-    </div>
+    <>
+      <RealtimeStatus status={realtimeStatus} />
+      {error && <ReadError message={error} onRetry={() => void calculateStandings()} />}
+      <div className="standings-container">
+        {renderTable(groupA, "A")}
+        {renderTable(groupB, "B")}
+      </div>
+    </>
   );
 }

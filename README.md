@@ -1,5 +1,9 @@
 # React + TypeScript + Vite
 
+## Actualizaciones públicas en vivo
+
+Las vistas públicas escuchan cambios de `matches` y `match_sets` mediante Supabase Realtime y vuelven a consultar los datos para mantener las relaciones y la tabla calculada consistentes. El proyecto no modifica la configuración de producción: el administrador de Supabase debe mantener esas tablas en la publicación Realtime y permitir su lectura pública mediante las políticas RLS correspondientes.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

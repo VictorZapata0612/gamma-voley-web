@@ -1,13 +1,21 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { PUBLIC_TOURNAMENT_ID } from "../lib/tournament";
 import type { Match } from "../types";
+import { ReadError, RealtimeStatus } from "./RealtimeStatus";
+import { usePublicRealtime } from "../lib/usePublicRealtime";
+
+const scheduleSubscriptions = [
+  { table: "matches", filter: `tournament_id=eq.${PUBLIC_TOURNAMENT_ID}` },
+  { table: "match_sets" },
+];
 
 export function ScheduleList() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchSchedule = async () => {
+  const fetchSchedule = useCallback(async () => {
     const { data, error } = await supabase
       .from("matches")
       .select(`
@@ -19,18 +27,41 @@ export function ScheduleList() {
       .eq("tournament_id", PUBLIC_TOURNAMENT_ID)
       .order("court_number", { ascending: true });
 
-    if (!error && data) {
+    if (error) {
+      setError(error.message);
+    } else if (data) {
       setMatches(data as unknown as Match[]);
+      setError(null);
     }
     setLoading(false);
-  };
+  }, []);
+
+  const realtimeStatus = usePublicRealtime({
+    channelName: "public-realtime-schedule",
+    subscriptions: scheduleSubscriptions,
+    onRefresh: fetchSchedule,
+  });
 
   useEffect(() => {
     void fetchSchedule();
-  }, []);
+  }, [fetchSchedule]);
 
   if (loading) {
-    return <div className="status-message">Cargando programación de partidos...</div>;
+    return (
+      <>
+        <RealtimeStatus status={realtimeStatus} />
+        <div className="status-message">Cargando programación de partidos...</div>
+      </>
+    );
+  }
+
+  if (error && matches.length === 0) {
+    return (
+      <>
+        <RealtimeStatus status={realtimeStatus} />
+        <ReadError message={error} onRetry={() => void fetchSchedule()} />
+      </>
+    );
   }
 
   const statusLabel = (status: Match["status"]) => {
@@ -47,35 +78,39 @@ export function ScheduleList() {
   };
 
   return (
-    <div className="schedule-list">
-      {matches.map((m) => (
-        <div key={m.id} className="schedule-card">
-          <div className="schedule-header">
-            <span className="court-tag">CANCHA {m.court_number ?? 1}</span>
-            {statusLabel(m.status)}
-          </div>
-          <div className="schedule-teams">
-            <span className={`team-label ${m.winner === "home" ? "winner" : ""}`}>
-              {m.home?.name}
-            </span>
-            <span className="vs-tag">VS</span>
-            <span className={`team-label ${m.winner === "away" ? "winner" : ""}`}>
-              {m.away?.name}
-            </span>
-          </div>
-          {m.match_sets && m.match_sets.length > 0 && (
-            <div className="schedule-sets">
-              {m.match_sets
-                .sort((a, b) => a.set_number - b.set_number)
-                .map((s) => (
-                  <span key={s.set_number} className="set-score-chip">
-                    S{s.set_number}: {s.home_points}-{s.away_points}
-                  </span>
-                ))}
+    <>
+      <RealtimeStatus status={realtimeStatus} />
+      {error && <ReadError message={error} onRetry={() => void fetchSchedule()} />}
+      <div className="schedule-list">
+        {matches.map((m) => (
+          <div key={m.id} className="schedule-card">
+            <div className="schedule-header">
+              <span className="court-tag">CANCHA {m.court_number ?? 1}</span>
+              {statusLabel(m.status)}
             </div>
-          )}
-        </div>
-      ))}
-    </div>
+            <div className="schedule-teams">
+              <span className={`team-label ${m.winner === "home" ? "winner" : ""}`}>
+                {m.home?.name}
+              </span>
+              <span className="vs-tag">VS</span>
+              <span className={`team-label ${m.winner === "away" ? "winner" : ""}`}>
+                {m.away?.name}
+              </span>
+            </div>
+            {m.match_sets && m.match_sets.length > 0 && (
+              <div className="schedule-sets">
+                {m.match_sets
+                  .sort((a, b) => a.set_number - b.set_number)
+                  .map((s) => (
+                    <span key={s.set_number} className="set-score-chip">
+                      S{s.set_number}: {s.home_points}-{s.away_points}
+                    </span>
+                  ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
