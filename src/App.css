@@ -16,14 +16,52 @@ body {
 }
 
 .app-container {
-  max-width: 600px;
+  max-width: 1120px;
+  min-height: 100svh;
   margin: 0 auto;
-  padding: 16px;
+  padding: clamp(16px, 3vw, 32px);
 }
 
 .main-header {
+  max-width: 760px;
+  margin: 0 auto 24px;
+}
+
+.header-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.share-btn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-main);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 7px 10px;
+}
+
+.share-btn:hover,
+.share-btn:focus-visible {
+  border-color: var(--primary);
+}
+
+.share-message {
+  color: #81c784;
+  font-size: 11px;
+  margin-top: 8px;
+}
+
+.main-header h1 {
+  margin: 10px 0 3px;
+  font-size: clamp(26px, 4vw, 38px);
+  font-weight: 900;
+  letter-spacing: -0.5px;
   text-align: center;
-  margin-bottom: 20px;
 }
 
 .brand-badge {
@@ -37,16 +75,11 @@ body {
   letter-spacing: 1px;
 }
 
-.main-header h1 {
-  margin: 8px 0 2px 0;
-  font-size: 26px;
-  font-weight: 900;
-}
-
 .sub-title {
   margin: 0;
   color: var(--text-muted);
   font-size: 13px;
+  text-align: center;
 }
 
 .tab-bar {
@@ -57,6 +90,9 @@ body {
   gap: 4px;
   border: 1px solid var(--border-color);
   margin-bottom: 20px;
+  position: sticky;
+  top: 10px;
+  z-index: 2;
 }
 
 .tab-btn {
@@ -81,6 +117,11 @@ body {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.content-area {
+  max-width: 980px;
+  margin: 0 auto;
 }
 
 .scoreboard-card {
@@ -273,6 +314,13 @@ body {
   border-radius: 14px;
   padding: 14px;
   border: 1px solid var(--border-color);
+}
+
+.table-empty {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin: 0;
+  padding: 12px 0 4px;
 }
 
 .table-group-title {
@@ -479,4 +527,33 @@ body {
   margin-top: 30px;
   font-size: 11px;
   color: var(--text-muted);
+}
+
+@media (min-width: 760px) {
+  .live-grid,
+  .schedule-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .standings-container {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-container {
+    padding: 14px 12px 24px;
+  }
+
+  .tab-btn {
+    font-size: 12px;
+    min-height: 42px;
+  }
+
+  .tab-bar {
+    margin-bottom: 16px;
+  }
 }

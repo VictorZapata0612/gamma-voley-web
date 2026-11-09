@@ -67,6 +67,20 @@ export function ScheduleList() {
     );
   }
 
+  if (matches.length === 0) {
+    return (
+      <>
+        <RealtimeStatus status={realtimeStatus} />
+        {error && <ReadError message={error} onRetry={() => void fetchSchedule()} />}
+        <div className="empty-card">
+          <span className="empty-icon">📅</span>
+          <h3>El calendario todavía está vacío</h3>
+          <p>Los partidos aparecerán aquí cuando se publique la programación.</p>
+        </div>
+      </>
+    );
+  }
+
   const statusLabel = (status: Match["status"]) => {
     switch (status) {
       case "in_progress":

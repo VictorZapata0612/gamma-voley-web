@@ -8,7 +8,7 @@ export function RealtimeStatus({ status }: RealtimeStatusProps) {
   const label = {
     connecting: "Conectando actualizaciones...",
     active: "Actualizaciones en vivo activas",
-    error: "Error de conexión en vivo",
+    error: "Sin conexión en vivo · mostrando la última información disponible",
   }[status];
 
   return <div className={`realtime-status ${status}`}>{label}</div>;

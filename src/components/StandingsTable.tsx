@@ -153,35 +153,39 @@ export function StandingsTable() {
   const renderTable = (rows: StandingRow[], groupName: string) => (
     <div className="table-wrapper">
       <h3 className="table-group-title">GRUPO {groupName}</h3>
-      <table className="standings-table">
-        <thead>
-          <tr>
-            <th>Equipo</th>
-            <th>PJ</th>
-            <th>PG</th>
-            <th>PP</th>
-            <th>PTS</th>
-            <th>DIFF</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, idx) => (
-            <tr key={r.teamId} className={idx < 2 ? "qualified-row" : ""}>
-              <td className="team-cell">
-                {idx < 2 && <span className="qual-dot" title="Zona de clasificación"></span>}
-                {r.teamName}
-              </td>
-              <td>{r.matchesPlayed}</td>
-              <td>{r.wins}</td>
-              <td>{r.losses}</td>
-              <td className="points-cell">{r.classificationPoints}</td>
-              <td className={r.pointDifferential >= 0 ? "pos-diff" : "neg-diff"}>
-                {r.pointDifferential > 0 ? `+${r.pointDifferential}` : r.pointDifferential}
-              </td>
+      {rows.length === 0 ? (
+        <p className="table-empty">Aún no hay equipos registrados en este grupo.</p>
+      ) : (
+        <table className="standings-table">
+          <thead>
+            <tr>
+              <th>Equipo</th>
+              <th>PJ</th>
+              <th>PG</th>
+              <th>PP</th>
+              <th>PTS</th>
+              <th>DIFF</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((r, idx) => (
+              <tr key={r.teamId} className={idx < 2 ? "qualified-row" : ""}>
+                <td className="team-cell">
+                  {idx < 2 && <span className="qual-dot" title="Zona de clasificación"></span>}
+                  {r.teamName}
+                </td>
+                <td>{r.matchesPlayed}</td>
+                <td>{r.wins}</td>
+                <td>{r.losses}</td>
+                <td className="points-cell">{r.classificationPoints}</td>
+                <td className={r.pointDifferential >= 0 ? "pos-diff" : "neg-diff"}>
+                  {r.pointDifferential > 0 ? `+${r.pointDifferential}` : r.pointDifferential}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 
