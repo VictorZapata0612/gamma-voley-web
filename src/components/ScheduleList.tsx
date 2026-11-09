@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { PUBLIC_TOURNAMENT_ID } from "../lib/tournament";
 import type { Match } from "../types";
 
 export function ScheduleList() {
@@ -15,6 +16,7 @@ export function ScheduleList() {
         away:teams!away_team_id(name),
         match_sets(*)
       `)
+      .eq("tournament_id", PUBLIC_TOURNAMENT_ID)
       .order("court_number", { ascending: true });
 
     if (!error && data) {

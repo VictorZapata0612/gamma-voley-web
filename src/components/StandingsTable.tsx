@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { PUBLIC_TOURNAMENT_ID } from "../lib/tournament";
+import { getClassificationPoints } from "../lib/standings";
 import type { StandingRow } from "../types";
 
 export function StandingsTable() {
@@ -8,14 +10,19 @@ export function StandingsTable() {
   const [loading, setLoading] = useState<boolean>(true);
 
   const calculateStandings = async () => {
-    const { data: teams } = await supabase.from("teams").select("id, name");
+    const { data: teams } = await supabase
+      .from("teams")
+      .select("id, name")
+      .eq("tournament_id", PUBLIC_TOURNAMENT_ID);
     const { data: groupMemberships } = await supabase
       .from("group_memberships")
-      .select("team_id, group_id, groups(name)");
+      .select("team_id, group_id, groups!inner(name, tournament_id)")
+      .eq("groups.tournament_id", PUBLIC_TOURNAMENT_ID);
     const { data: matches } = await supabase
       .from("matches")
       .select("*, match_sets(*)")
       .eq("phase", "group")
+      .eq("tournament_id", PUBLIC_TOURNAMENT_ID)
       .in("status", ["completed", "walkover"]);
 
     if (!teams || !groupMemberships) {
@@ -69,15 +76,15 @@ export function StandingsTable() {
       } else if (m.winner === "home") {
         home.wins += 1;
         away.losses += 1;
-        const homeSetsWon = sets.filter((s: any) => s.home_points > s.away_points).length;
-        home.classificationPoints += homeSetsWon === 2 ? 3 : 2;
-        away.classificationPoints += 1;
+        const points = getClassificationPoints(sets, "home");
+        home.classificationPoints += points.winner;
+        away.classificationPoints += points.loser;
       } else if (m.winner === "away") {
         away.wins += 1;
         home.losses += 1;
-        const awaySetsWon = sets.filter((s: any) => s.away_points > s.home_points).length;
-        away.classificationPoints += awaySetsWon === 2 ? 3 : 2;
-        home.classificationPoints += 1;
+        const points = getClassificationPoints(sets, "away");
+        away.classificationPoints += points.winner;
+        home.classificationPoints += points.loser;
       }
 
       home.pointDifferential = home.pointsFor - home.pointsAgainst;

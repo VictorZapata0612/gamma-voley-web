@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { PUBLIC_TOURNAMENT_ID } from "../lib/tournament";
 import type { Match } from "../types";
 
 export function LiveScoreboard() {
@@ -15,6 +16,7 @@ export function LiveScoreboard() {
         away:teams!away_team_id(id, name),
         match_sets(*)
       `)
+      .eq("tournament_id", PUBLIC_TOURNAMENT_ID)
       .eq("status", "in_progress")
       .order("court_number", { ascending: true });
 
@@ -38,7 +40,12 @@ export function LiveScoreboard() {
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "matches" },
+        {
+          event: "*",
+          schema: "public",
+          table: "matches",
+          filter: `tournament_id=eq.${PUBLIC_TOURNAMENT_ID}`,
+        },
         () => {
           void fetchLiveMatches();
         }
