@@ -127,4 +127,5 @@ export type StandingRow = {
   pointsFor: number;
   pointsAgainst: number;
   pointDifferential: number;
+  hasProvisionalResult?: boolean;
 };
