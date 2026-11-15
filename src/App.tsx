@@ -2,10 +2,13 @@ import { useState } from "react";
 import { LiveScoreboard } from "./components/LiveScoreboard";
 import { StandingsTable } from "./components/StandingsTable";
 import { ScheduleList } from "./components/ScheduleList";
+import { KnockoutBracket } from "./components/KnockoutBracket";
 import "./App.css";
 
+type Tab = "live" | "standings" | "schedule" | "knockout";
+
 export default function App() {
-  const [tab, setTab] = useState<"live" | "standings" | "schedule">("live");
+  const [tab, setTab] = useState<Tab>("live");
   const [shareMessage, setShareMessage] = useState<string | null>(null);
 
   const shareTournament = async () => {
@@ -50,24 +53,18 @@ export default function App() {
         {shareMessage && <p className="share-message" role="status">{shareMessage}</p>}
       </header>
 
-      <nav className="tab-bar">
-        <button
-          className={`tab-btn ${tab === "live" ? "active" : ""}`}
-          onClick={() => setTab("live")}
-        >
+      <nav className="tab-bar" aria-label="Secciones del torneo">
+        <button className={`tab-btn ${tab === "live" ? "active" : ""}`} onClick={() => setTab("live")}>
           🔴 En Vivo
         </button>
-        <button
-          className={`tab-btn ${tab === "standings" ? "active" : ""}`}
-          onClick={() => setTab("standings")}
-        >
+        <button className={`tab-btn ${tab === "standings" ? "active" : ""}`} onClick={() => setTab("standings")}>
           🏆 Posiciones
         </button>
-        <button
-          className={`tab-btn ${tab === "schedule" ? "active" : ""}`}
-          onClick={() => setTab("schedule")}
-        >
+        <button className={`tab-btn ${tab === "schedule" ? "active" : ""}`} onClick={() => setTab("schedule")}>
           📅 Calendario
+        </button>
+        <button className={`tab-btn ${tab === "knockout" ? "active" : ""}`} onClick={() => setTab("knockout")}>
+          🥇 Fase final
         </button>
       </nav>
 
@@ -75,6 +72,7 @@ export default function App() {
         {tab === "live" && <LiveScoreboard />}
         {tab === "standings" && <StandingsTable />}
         {tab === "schedule" && <ScheduleList />}
+        {tab === "knockout" && <KnockoutBracket />}
       </main>
 
       <footer className="main-footer">
